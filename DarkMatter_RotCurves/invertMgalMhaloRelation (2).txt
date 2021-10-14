@@ -1,0 +1,66 @@
+import numpy as np
+import pandas as pd
+import matplotlib.cm as cm
+import forplotting as forp
+import cosmology
+import ScalingRelations
+
+from colossus.cosmology import cosmology
+cosmology.setCosmology('planck15')
+from colossus.lss import mass_function
+
+#generate the halo mass function of central haloes (no subhaloes)
+mina=11.
+maxa=15.1
+binsize=0.1
+z=0.1
+Vol=500.**3.
+M = 10**np.arange(mina,maxa, binsize)
+mfunc = mass_function.massFunction(M, z, mdef = '200m', model = 'tinker08', q_out = 'dndlnM')
+plt.plot(np.log10(M), np.log10(mfunc))
+
+#compute the cumulative halo mass function and extract the haloes
+a=mfunc[::-1]
+a=np.cumsum(a*binsize)
+a=a[::-1]
+vecint=np.arange(np.int(np.max(a*Vol)))
+b=a[::-1]
+cumh=np.log10(M[::-1])
+Mhalo=np.interp(vecint,b*Vol,cumh)
+#plt.plot(np.log10(M), np.log10(a*Vol))
+
+#bin the extracted halo catalogue as dN/dM/Vol to get a halo mass function which must match the input one! 
+#use fast histogram method
+hist = np.histogram(Mhalo, bins=len(M),range=(mina,maxa))[0] 
+plt.scatter(np.log10(M),np.log10(hist/binsize/Vol))
+#use brute-force method
+Mlog=np.log10(M)
+maccm=Mlog
+maccp=maccm+binsize
+maccs=0.5*(maccm+maccp)
+Mhalomean=0.*macc
+Num=0.*M
+for i in range(len(M)):
+    ix=Mhalo[(Mhalo>=maccm[i]) & (Mhalo<maccp[i])]
+    Num[i]=np.float(len(ix))
+plt.plot(maccs,np.log10(Num/binsize/Vol),'r+')
+plt.show()
+
+#assign galaxies to haloes
+Mgal=Grylls19(z,Mhalo,0.15)
+step=0.3
+mina=9.
+maxa=12.
+maccm=np.arange(mina,maxa,step)
+maccp=maccm+step
+macc=0.5*(maccm+maccp)
+Mhalomean=0.*macc
+
+#compute inverse relation: Mhalo at fixed M*
+for i in range(len(macc)):
+    Mfin=np.mean(Mhalo[(Mgal>=maccm[i]) & (Mgal<maccp[i])])
+    Mhalomean[i]=Mfin
+
+plt.plot(macc,Mhalomean)
+plt.show()
+
